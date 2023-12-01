@@ -1,31 +1,31 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 
 	"github.com/enrichman/coverage/internal/library"
-	lib "github.com/enrichman/coverage/internal/library"
 	"github.com/gin-gonic/gin"
 )
 
 type BookResponse struct {
-	ID    int    `json:"id"`
+	ISBN  string `json:"isbn"`
 	Title string `json:"title"`
 }
 
-func libraryHandlers(r *gin.Engine, library *library.Library) {
-	r.GET("/books/:id", func(c *gin.Context) {
-		paramID := c.Param("id")
+type BookListResponse []BookResponse
 
-		id, err := strconv.Atoi(paramID)
-		if err != nil {
-			_ = c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
+func libraryHandlers(r *gin.Engine, library *library.Library) {
+	r.GET("/book/:id", getBookByID(library))
+	r.GET("/book", getBooks(library))
+	r.GET("/book/:id/borrow", borrowItem(library))
+	r.GET("/book/:id/return/:item_id", returnItem(library))
+}
+
+func getBookByID(library *library.Library) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
 
 		book, err := library.FindByID(id)
 		if err != nil {
@@ -34,44 +34,65 @@ func libraryHandlers(r *gin.Engine, library *library.Library) {
 		}
 
 		c.JSON(http.StatusOK, BookResponse{
-			ID:    book.ID,
+			ISBN:  book.ISBN,
 			Title: book.Title,
 		})
-	})
+	}
+}
 
-	r.POST("/books", func(c *gin.Context) {
-		bookRequest := &BookResponse{}
+func getBooks(library *library.Library) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		catalog := library.GetBooks()
 
-		err := c.BindJSON(bookRequest)
-		if err != nil {
-			_ = c.AbortWithError(http.StatusBadRequest, err)
-			return
+		limit := 10
+		limitStr := c.Query("limit")
+		if limitStr != "" {
+			limitVal, err := strconv.Atoi(limitStr)
+			if err != nil {
+				_ = c.AbortWithError(http.StatusBadRequest, err)
+				return
+			}
+
+			if limitVal > 0 && limitVal < 20 {
+				limit = limitVal
+			}
 		}
 
-		book := lib.Book{
-			ID:    bookRequest.ID,
-			Title: bookRequest.Title,
-		}
-		err = library.AddBook(book)
+		catalog = catalog[0:limit]
+
+		c.JSON(http.StatusOK, catalog)
+	}
+}
+
+func borrowItem(library *library.Library) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		book, err := library.FindByID(id)
 		if err != nil {
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 
-		c.JSON(http.StatusOK, BookResponse{
-			ID:    book.ID,
-			Title: book.Title,
-		})
-	})
+		item := library.Borrow(book.ISBN)
+		c.JSON(http.StatusOK, item)
+	}
 }
 
-func exitHandler(r *gin.Engine) chan os.Signal {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+func returnItem(lib *library.Library) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		itemID := c.Param("item_id")
+		fmt.Println(itemID)
 
-	r.GET("/exit", func(c *gin.Context) {
-		quit <- syscall.SIGTERM
-	})
+		book, err := lib.FindByID(id)
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
 
-	return quit
+		bookItem := library.BookItem{ID: 383, Book: *book}
+		lib.Return(bookItem)
+		c.JSON(http.StatusOK, bookItem)
+	}
 }

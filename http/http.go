@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/enrichman/coverage/internal/library"
@@ -18,21 +20,25 @@ func Run() {
 	// middlewares
 	r.Use(ErrorHandler)
 
-	library := library.New()
+	library, err := library.New()
+	if err != nil {
+		panic(err)
+	}
+
 	libraryHandlers(r, library)
 
-	// handler for graceful shutdown
-	quit := exitHandler(r)
+	gracefulListenAndServe(r)
+}
 
+func gracefulListenAndServe(r *gin.Engine) {
 	srv := &http.Server{
 		Addr:    ":8088",
 		Handler: r,
 	}
 
-	gracefulListenAndServe(srv, quit)
-}
+	// handler for graceful shutdown
+	quit := exitHandler(r)
 
-func gracefulListenAndServe(srv *http.Server, quit chan os.Signal) {
 	go func() {
 		err := srv.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
@@ -42,7 +48,19 @@ func gracefulListenAndServe(srv *http.Server, quit chan os.Signal) {
 
 	// wait for the quit signal
 	<-quit
+
 	quitServer(srv)
+}
+
+func exitHandler(r *gin.Engine) chan os.Signal {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	r.GET("/exit", func(c *gin.Context) {
+		quit <- syscall.SIGTERM
+	})
+
+	return quit
 }
 
 func quitServer(srv *http.Server) {
