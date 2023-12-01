@@ -1,5 +1,7 @@
 package library
 
+import "errors"
+
 type Book struct {
 	ID    int
 	Title string
@@ -17,13 +19,17 @@ func New() *Library {
 	}
 }
 
-func (l *Library) FindByID(id int) Book {
+func (l *Library) FindByID(id int) (*Book, error) {
 	for _, b := range l.books {
 		if b.ID == id {
-			return b
+			return &b, nil
 		}
 	}
-	return Book{}
+	return nil, errors.New("not found")
+}
+
+func (l *Library) AddBook(Book) error {
+	return nil
 }
 
 func (l *Library) GetBooks(id int) []Book {

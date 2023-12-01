@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/enrichman/coverage/internal/library"
+	lib "github.com/enrichman/coverage/internal/library"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,7 +18,7 @@ type BookResponse struct {
 }
 
 func libraryHandlers(r *gin.Engine, library *library.Library) {
-	r.GET("/book/:id", func(c *gin.Context) {
+	r.GET("/books/:id", func(c *gin.Context) {
 		paramID := c.Param("id")
 
 		id, err := strconv.Atoi(paramID)
@@ -26,12 +27,41 @@ func libraryHandlers(r *gin.Engine, library *library.Library) {
 			return
 		}
 
-		book := library.FindByID(id)
+		book, err := library.FindByID(id)
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
 		c.JSON(http.StatusOK, BookResponse{
 			ID:    book.ID,
 			Title: book.Title,
 		})
+	})
 
+	r.POST("/books", func(c *gin.Context) {
+		bookRequest := &BookResponse{}
+
+		err := c.BindJSON(bookRequest)
+		if err != nil {
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		book := lib.Book{
+			ID:    bookRequest.ID,
+			Title: bookRequest.Title,
+		}
+		err = library.AddBook(book)
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, BookResponse{
+			ID:    book.ID,
+			Title: book.Title,
+		})
 	})
 }
 
