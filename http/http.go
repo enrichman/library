@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/enrichman/coverage/internal/library"
+	"github.com/enrichman/library/internal/library"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,17 +22,22 @@ func Run() {
 
 	library, err := library.New()
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	libraryHandlers(r, library)
 
-	gracefulListenAndServe(r)
+	var port string
+	if port = os.Getenv("PORT"); port == "" {
+		port = "8088"
+	}
+
+	gracefulListenAndServe(r, port)
 }
 
-func gracefulListenAndServe(r *gin.Engine) {
+func gracefulListenAndServe(r *gin.Engine, port string) {
 	srv := &http.Server{
-		Addr:    ":8088",
+		Addr:    ":" + port,
 		Handler: r,
 	}
 
@@ -40,6 +45,8 @@ func gracefulListenAndServe(r *gin.Engine) {
 	quit := exitHandler(r)
 
 	go func() {
+		log.Printf("server listening at http://localhost%s\n", srv.Addr)
+
 		err := srv.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			log.Printf("closing server: %s\n", err)

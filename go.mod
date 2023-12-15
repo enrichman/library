@@ -1,4 +1,4 @@
-module github.com/enrichman/coverage
+module github.com/enrichman/library
 
 go 1.21
 

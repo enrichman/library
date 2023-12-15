@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/enrichman/coverage/internal/library"
+	"github.com/enrichman/library/internal/library"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,10 +17,10 @@ type BookResponse struct {
 type BookListResponse []BookResponse
 
 func libraryHandlers(r *gin.Engine, library *library.Library) {
-	r.GET("/book/:id", getBookByID(library))
-	r.GET("/book", getBooks(library))
-	r.GET("/book/:id/borrow", borrowItem(library))
-	r.GET("/book/:id/return/:item_id", returnItem(library))
+	r.GET("/books/:id", getBookByID(library))
+	r.GET("/books", getBooks(library))
+	r.GET("/books/:id/borrow", borrowItem(library))
+	r.GET("/books/:id/return/:item_id", returnItem(library))
 }
 
 func getBookByID(library *library.Library) gin.HandlerFunc {

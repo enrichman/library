@@ -3,7 +3,7 @@ package main_test
 import (
 	"testing"
 
-	"github.com/enrichman/coverage/http"
+	"github.com/enrichman/library/http"
 )
 
 func TestRun(t *testing.T) {
